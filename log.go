@@ -17,6 +17,7 @@ import (
 type LogItem struct {
 	LogType string
 	Msg     string
+	Data    interface{}
 }
 
 type LevelBit int
@@ -219,8 +220,7 @@ func (l *LogEngine) FileOutLevel(level int) bool {
 	return l.fileOutLevels[level]
 }
 
-func (l *LogEngine) AddLog(msg string, logtype string) error {
-	var e error
+func (l *LogEngine) AddLog(msg string, logtype string, data ...interface{}) error {
 	logtype = strings.ToUpper(logtype)
 
 	if l.LogToStdOut {
@@ -233,13 +233,14 @@ func (l *LogEngine) AddLog(msg string, logtype string) error {
 		} else if logtype == "INFO" && (l.StdOutLevel(AllLevel) || l.StdOutLevel(InfoLevel)) {
 			l.logInfo.Println(msg)
 		}
-		if e != nil {
-			return errors.New("Log.AddLog Error: " + e.Error())
-		}
 	}
 
 	if l.LogToFile {
-		l.chanLogItem <- LogItem{logtype, msg}
+		if len(data) > 0 {
+			l.chanLogItem <- LogItem{logtype, msg, nil}
+		} else {
+			l.chanLogItem <- LogItem{logtype, msg, data[0]}
+		}
 	}
 
 	//--- run hook
