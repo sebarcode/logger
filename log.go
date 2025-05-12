@@ -137,14 +137,12 @@ func prepareStdoutLogger(l *LogEngine, logType string) *log.Logger {
 		msg += logType
 		msg += " {MSG}"
 
-		w.fn = func(item LogItem) string {
+		l.fnTemplate = func(item LogItem) string {
 			fmtMsg := msg
 			fmtMsg = strings.Replace(fmtMsg, "{TIME}", time.Now().Format(time.RFC3339), -1)
 			fmtMsg = strings.Replace(fmtMsg, "{MSG}", item.Msg, -1)
 			return fmtMsg
 		}
-	} else {
-		w.fn = l.fnTemplate
 	}
 
 	logger.SetOutput(w)
@@ -226,25 +224,36 @@ func (l *LogEngine) FileOutLevel(level int) bool {
 }
 
 func (l *LogEngine) AddLog(msg string, logtype string, data ...interface{}) error {
+	var li LogItem
+
 	logtype = strings.ToUpper(logtype)
+	if len(data) == 0 {
+		li = LogItem{logtype, msg, nil}
+	} else {
+		li = LogItem{logtype, msg, data[0]}
+	}
 
 	if l.LogToStdOut {
+		var formattedMsg string
+		if l.fnTemplate != nil {
+			formattedMsg = l.fnTemplate(li)
+		}
 		if logtype == "ERROR" && (l.StdOutLevel(AllLevel) || l.StdOutLevel(ErrorLevel)) {
-			l.logError.Println(msg)
+			l.logError.Println(formattedMsg)
 		} else if logtype == "WARNING" && (l.StdOutLevel(AllLevel) || l.StdOutLevel(WarningLevel)) {
-			l.logWarn.Println(msg)
+			l.logWarn.Println(formattedMsg)
 		} else if logtype == "DEBUG" && (l.StdOutLevel(AllLevel) || l.StdOutLevel(DebugLevel)) {
-			l.logDebug.Println(msg)
+			l.logDebug.Println(formattedMsg)
 		} else if logtype == "INFO" && (l.StdOutLevel(AllLevel) || l.StdOutLevel(InfoLevel)) {
-			l.logInfo.Println(msg)
+			l.logInfo.Println(formattedMsg)
 		}
 	}
 
 	if l.LogToFile {
 		if len(data) > 0 {
-			l.chanLogItem <- LogItem{logtype, msg, nil}
+			l.chanLogItem <- li
 		} else {
-			l.chanLogItem <- LogItem{logtype, msg, data[0]}
+			l.chanLogItem <- li
 		}
 	}
 
@@ -274,9 +283,7 @@ func (l *LogEngine) writeLogToFile(msg, logtype string) {
 	if l.UseDateFormat != "" && strings.Contains(l.FileNamePattern, "$DATE") {
 		filename = strings.Replace(l.FileNamePattern, "$DATE", Date2String(time.Now(), l.UseDateFormat), -1)
 	}
-	if strings.Contains(filename, "$LOGTYPE") {
-		filename = strings.Replace(filename, "$LOGTYPE", logtype, -1)
-	}
+	filename = strings.Replace(filename, "$LOGTYPE", logtype, -1)
 	filename = filepath.Join(l.Path, filename)
 	filenameSelected := l.fileNames[logtype]
 	if filename != filenameSelected {
@@ -386,11 +393,8 @@ func Logger() *LogEngine {
 
 type LogWriter struct {
 	initialItem LogItem
-	fn          func(item LogItem) string
 }
 
 func (w *LogWriter) Write(bs []byte) (int, error) {
-	item := w.initialItem
-	item.Msg = string(bs)
-	return fmt.Print(w.fn(item))
+	return fmt.Print(string(bs))
 }
