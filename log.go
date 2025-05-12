@@ -24,10 +24,15 @@ type LevelBit int
 
 const (
 	AllLevel     int = 0
-	InfoLevel        = 1
-	WarningLevel     = 2
-	ErrorLevel       = 3
-	DebugLevel       = 4
+	InfoLevel    int = 1
+	WarningLevel int = 2
+	ErrorLevel   int = 3
+	DebugLevel   int = 4
+
+	LogTypeInfo    string = "INFO"
+	LogTypeWarning string = "WARNING"
+	LogTypeError   string = "ERROR"
+	LogTypeDebug   string = "DEBUG"
 )
 
 type LogEngine struct {
